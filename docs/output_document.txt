@@ -1,0 +1,187 @@
+
+====================================================================================
+SETUP
+====================================================================================
+  Document        : /home/kirito/Downloads/nlp_chunking_vectorization_EN.docx
+  LLM model       : llama3.2:3b
+  Embedding model : nomic-embed-text
+  spaCy available : True
+
+Document profile
+------------------------------------------------------------------------------------
+  blocks        : 367
+    headings    : 36
+    list items  : 83
+    prose paras : 248
+  characters    : 17,706
+  sections      : 33
+
+====================================================================================
+WHY spaCy AND NOT A REGEX
+====================================================================================
+
+  A regex on '[.!?] + whitespace' treats every full stop as a sentence end.
+  spaCy decides from grammatical structure, so abbreviations survive.
+
+  CASE 1: Mr. Smith has arrived. He met Dr. Jones at 3.5 p.m.
+    regex -> 4 sentences: ['Mr.', 'Smith has arrived.', 'He met Dr.', 'Jones at 3.5 p.m.']
+    spaCy -> 2 sentences: ['Mr. Smith has arrived.', 'He met Dr. Jones at 3.5 p.m.']
+    spaCy correct
+
+  CASE 2: The U.S.A. leads in A.I. research. Costs fell 12.5% in Q3.
+    regex -> 4 sentences: ['The U.S.A.', 'leads in A.I.', 'research.', 'Costs fell 12.5% in Q3.']
+    spaCy -> 2 sentences: ['The U.S.A. leads in A.I. research.', 'Costs fell 12.5% in Q3.']
+    spaCy correct
+
+  CASE 3: See Fig. 2 for details. Approx. 40 items were tested (e.g. sensors).
+    regex -> 5 sentences: ['See Fig.', '2 for details.', 'Approx.', '40 items were tested (e.g.', 'sensors).']
+    spaCy -> 3 sentences: ['See Fig. 2 for details.', 'Approx.', '40 items were tested (e.g. sensors).']
+    spaCy correct
+
+  Case 3 shows spaCy is better, not perfect: it still breaks after 'Approx.'
+  No sentence splitter is exact — but the regex is wrong far more often.
+
+====================================================================================
+THE FIVE CHUNKING STRATEGIES
+====================================================================================
+
+Comparison
+------------------------------------------------------------------------------------
+  method          chunks     avg    min    max   build s  notes
+  1 fixed-size        41   489.8    106    500      0.00  overlap 60 chars (12%)
+  2 sentence          37   475.2    118    600      0.14  engine: spaCy
+  3 recursive         33   534.6    153    600      0.00  
+  4 semantic           8  2186.0    153   4367      9.04  142 sentences clustered
+  5 structure         64   282.8     27    664      0.00  kinds: list, prose
+
+One sample chunk from each method
+------------------------------------------------------------------------------------
+
+  1 fixed-size (chunk 21/41, 500 chars):
+    ..."  Numbered list  \n1.  Summary — which method to choose?  Here is a comparison table to help you pick the right method for your context.  Method  Speed  Quality  Complexity  Best for  Fixed size  ...
+
+  2 sentence (chunk 19/37, 570 chars):
+    It recognizes normal paragraphs, bullet lists, numbered lists, etc., and applies a different treatment to each. Example of mixed content  Artificial intelligence is growing rapidly. Its main applicati...
+
+  3 recursive (chunk 17/33, 584 chars):
+    Type  Separator used  "Artificial intelligence..."  Normal paragraph  \n\n  "Natural language processing / Computer vision..."  Bullet list  \n-  "Collect the data / Train the model..."  Numbered list...
+
+  4 semantic (chunk 5/8, 464 chars):
+    Machines don't understand words — they only work with numbers. Text has to be converted into numerical representations. The concept of a token  In NLP, we usually talk about tokens rather than words o...
+
+  5 structure (chunk 33/64, 646 chars):
+    [Method 5 — Content-Aware Chunking] This method adapts the splitting strategy to the type of content detected in the text. It recognizes normal paragraphs, bullet lists, numbered lists, etc., and appl...
+
+====================================================================================
+EMBEDDINGS
+====================================================================================
+  1 fixed-size    41 vectors x 768 dims in  8.94s
+  2 sentence      37 vectors x 768 dims in  8.95s
+  3 recursive     33 vectors x 768 dims in  9.78s
+  4 semantic       8 vectors x 768 dims in 10.92s
+  5 structure     64 vectors x 768 dims in 10.54s
+
+  All strategies produce 768-dimension vectors: the dimension comes
+  from the embedding model, not from how the text was split.
+
+====================================================================================
+SEMANTIC SEARCH — TOP-3 PER QUERY, PER STRATEGY
+====================================================================================
+
+Query: Which chunking method should I start with and what overlap is recommended?
+------------------------------------------------------------------------------------
+
+  1 fixed-size   top score 0.7273
+    ed-size chunking  Take a free-form 500-word text (Wikipedia, a news article…).  Implement the function fixed_chunk(tex...
+
+  2 sentence     top score 0.7179
+    Illustration of the overlap  Chunk 1 — tokens 1 → 200  Overlap — tokens 180 → 220 (shared)  Chunk 2 — tokens 181 → 380...
+
+  3 recursive    top score 0.7184
+    Illustration of the overlap  Chunk 1 — tokens 1 → 200  Overlap — tokens 180 → 220 (shared)  Chunk 2 — tokens 181 → 380...
+
+  4 semantic     top score 0.6197
+    Python  ·  Ollama llama3.2:3b  Part 1 — Chunking  Intelligently splitting a text into usable pieces for NLP models. Yo...
+
+  5 structure    top score 0.7683
+    [Practical exercises] Beginner — Fixed-size chunking...
+
+  Full TOP-3 (recursive):
+    1) 0.7184  Illustration of the overlap  Chunk 1 — tokens 1 → 200  Overlap — tokens 180 → 220 (shared)  Chunk 2 — tokens 181 → 380  Code — key idea  # Split a text into 200-character chunks with a 20-character ov...
+    2) 0.6984  text[start:start+size]  Overlap  Overlap between chunks  start += size - overlap  Embedding  Numerical vector of a text's meaning  requests.post('/api/embeddings')  Cosine similarity  Proximity score ...
+    3) 0.6793  Print the number of chunks generated and the size of each.  Bonus: try overlap=0 and compare the results.  Intermediate — Embeddings and similarity  Start Ollama with llama3.2:3b.  Generate embeddings...
+
+Query: What is an embedding and what does cosine similarity measure?
+------------------------------------------------------------------------------------
+
+  1 fixed-size   top score 0.7640
+    richer (and heavier) its vectors.  Dimensionality directly affects the precision of similarity comparisons.  Cosine si...
+
+  2 sentence     top score 0.7370
+    = get_embedding('A feline is resting')vec3 = get_embedding('The car is driving fast')print(cosine_similarity(vec1, vec...
+
+  3 recursive    top score 0.7782
+    Dimensionality directly affects the precision of similarity comparisons.  Cosine similarity — comparing two vectors  O...
+
+  4 semantic     top score 0.6257
+    Part 2 — Vectorization  Turning text into numbers that machines can compare and analyze. Part 2 — Vectorization: turni...
+
+  5 structure    top score 0.8030
+    [Cosine similarity — comparing two vectors] Once embeddings are generated, how do you know if two texts are similar? C...
+
+  Full TOP-3 (recursive):
+    1) 0.7782  Dimensionality directly affects the precision of similarity comparisons.  Cosine similarity — comparing two vectors  Once embeddings are generated, how do you know if two texts are similar? Cosine sim...
+    2) 0.7548  Code — computing cosine similarity  import numpy as npdef cosine_similarity(vec_a, vec_b):    a = np.array(vec_a)    b = np.array(vec_b)    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)...
+    3) 0.7040  An embedding is a numerical vector that represents the semantic meaning of a piece of text (a word, sentence, or document). Unlike naive representations (like counting words), embeddings capture the r...
+
+Query: How do I run a model locally with Ollama?
+------------------------------------------------------------------------------------
+
+  1 fixed-size   top score 0.7468
+    ally thanks to Ollama, a tool that lets you run large language models (LLMs) on your own machine, with no internet con...
+
+  2 sentence     top score 0.7569
+    Tools used: Ollama & llama3.2:3b  In this course, everything runs locally thanks to Ollama, a tool that lets you run l...
+
+  3 recursive    top score 0.7714
+    In this course, everything runs locally thanks to Ollama, a tool that lets you run large language models (LLMs) on you...
+
+  4 semantic     top score 0.7447
+    Tools used: Ollama & llama3.2:3b  In this course, everything runs locally thanks to Ollama, a tool that lets you run l...
+
+  5 structure    top score 0.7589
+    [Quick installation] # 1. Download Ollama: https://ollama.com# 2. Pull and run the llama3.2:3b model$ ollama pull llam...
+
+  Full TOP-3 (recursive):
+    1) 0.7714  In this course, everything runs locally thanks to Ollama, a tool that lets you run large language models (LLMs) on your own machine, with no internet connection or paid API key required.  Tool  Role  ...
+    2) 0.6449  How it works  1. You send text to Ollama → "The cat is sleeping on the couch"  2. llama3.2:3b processes the text → internal analysis by the model  3. It returns a vector of 3,072 numbers → [0.24, -0.5...
+    3) 0.6434  # 1. Download Ollama: https://ollama.com# 2. Pull and run the llama3.2:3b model$ ollama pull llama3.2:3b$ ollama serve   # starts the server on localhost:11434# 3. Check that it works (Python)import r...
+
+====================================================================================
+SUMMARISING THE DOCUMENT (recursive chunks, map-reduce)
+====================================================================================
+
+  Summarising 33 chunks, then merging.
+    [ 1/33] The passage focuses on two key NLP techniques: chunking and vectorization, aiming to transform raw text into a usable and machine-readable format.
+    [ 2/33] This course teaches how to solve two fundamental problems in NLP: dealing with long text and converting text into numerical representations.
+    [ 3/33] The simplified NLP pipeline consists of raw text being split into coherent pieces, converted into vectors, and then stored for search.
+    [ 4/33] The course uses Ollama, a tool that allows running large language models locally on the user's machine without an internet connection.
+    [ 5/33] Ollama exposes two main endpoints: /api/generate for generating text and /api/embeddings for getting numerical vectors for a piece of text.
+    ... (27 more)
+    [33/33] Implement a search(query) function that returns the top 3 chunks.
+
+Merging in batches of 8
+------------------------------------------------------------------------------------
+  batch 1: The course focuses on two key NLP techniques: chunking and vectorization, aiming to transform raw text into a usable format. It teaches how to solve two fundamental problems in NLP: dealing with long text and converting text into numerical representations. The simplified NLP pipeline involves splitting raw text into coherent pieces, converting them into vectors, and storing them for search. The course uses Ollama, a tool that allows running large language models locally without an internet connection. Ollama exposes two main endpoints for generating text and getting numerical vectors. Chunking involves splitting long text into smaller, coherent pieces called chunks, with tokens equivalent to 0.75 words in English. A function splits text into 200-character chunks with a 20-character overlap.
+  batch 2: Sentence splitting is a method that respects natural sentence boundaries using punctuation or NLP libraries. Two approaches to splitting text into sentences are presented: one using regular expressions and another using spaCy, a natural language processing library. Text is split hierarchically by paragraphs, then sentences, and finally words if needed. A function called recursive_chunk splits a text into chunks if it is too large, using a recursive approach with different separators. Recursive chunking groups sentences by their structure. Group similar sentences together via clustering and build chunks from the resulting groups. Semantic chunking requires generating one embedding per sentence. Content-Aware Chunking adapts the splitting strategy to the type of content detected in the text.
+  batch 3: A comparison table helps choose the right method for a specific context. The process of turning text into numbers for NLP involves recursive chunking and adjusting chunk size for a model. Machines compute distances between vectors to determine the meaning of words and text. An embedding is a numerical vector representing the semantic meaning of a piece of text, capturing relationships of meaning between concepts. Each word is represented as a fixed vector, while sentence embeddings capture a sentence's overall meaning as a single vector. Text is sent to Ollama and processed into a vector of 3,072 numbers. The llama3.2:3b model generates vectors with 3072 dimensions. Cosine similarity measures the angle between two vectors and returns a score between -1 and +1.
+  batch 4: The cosine similarity function calculates the dot product of two vectors divided by the product of their magnitudes. Vector databases are built to run similarity searches quickly using smart indexing algorithms. ChromaDB is recommended for NLP projects due to its one-command install, simple API, and ability to store vectors and documents with metadata filtering. A complete semantic search system combines indexing and search using Ollama for embedding generation and ChromaDB for storing and retrieving vectors. A collection is indexed with document chunks and searched using an embedded query. The course covers a pipeline from raw text to intelligent search through chunking and vectorization.
+  batch 5: Implement a search(query) function that returns the top 3 chunks.
+
+Final document summary
+------------------------------------------------------------------------------------
+  The course teaches two key NLP techniques, chunking and vectorization, to transform raw text into a usable format, focusing on solving problems like dealing with long text and converting text into numerical representations. It covers various methods for chunking, including sentence splitting, recursive chunking, and semantic chunking, and explains how to generate vectors, store them, and perform similarity searches using tools like Ollama and ChromaDB.
+
+====================================================================================
+Done.
+====================================================================================
