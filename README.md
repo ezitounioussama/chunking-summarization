@@ -2,6 +2,9 @@
 
 All six steps of the exercise, running **locally on Ollama** — no API key, no provider calls.
 
+> **[RESULTS.md](RESULTS.md) — every captured run log, both parts.** Chunk listings, summaries,
+> embedding dimensions, cosine scores and the two bugs found while building.
+
 | | |
 |---|---|
 | LLM | `llama3.2:3b` |
@@ -17,7 +20,8 @@ All six steps of the exercise, running **locally on Ollama** — no API key, no 
 | `embeddings.py` | Embedding store, cosine similarity, search (Steps 4–6) |
 | `ollama_client.py` | Thin wrapper over the local Ollama HTTP API |
 | `tests.py` | 23 tests for the splitting and the maths (no model needed) |
-| `docs/output.txt` | Full captured output of a real run |
+| **[`RESULTS.md`](RESULTS.md)** | **All captured results, both parts — start here** |
+| `docs/output.txt` | Raw terminal log of the Part 1 run (219 lines) |
 
 ## Running it
 
@@ -217,7 +221,7 @@ Target document: `nlp_chunking_vectorization_EN.docx` — the NLP course notes, 
 | `docx_loader.py` | Reads `.docx` **keeping its structure** — headings, list items, sections |
 | `chunkers.py` | The course's **five** methods, with spaCy for sentence boundaries |
 | `run_on_document.py` | Full pipeline on a real document |
-| `docs/output_document.txt` | Captured output of the run below |
+| `docs/output_document.txt` | Raw terminal log of the Part 2 run (187 lines) — summarised in [`RESULTS.md`](RESULTS.md) |
 
 ```bash
 pip install spacy scikit-learn numpy
@@ -332,3 +336,22 @@ fluent, plausible, incomplete answer — nothing errors.
 
 For this document, structure-aware plus recursive is the right pairing, and the 9 seconds spent on
 KMeans bought nothing.
+
+---
+
+## Results and logs
+
+Every number quoted in this README comes from a real run on this machine. The captured output is
+collected in one place:
+
+**→ [RESULTS.md](RESULTS.md)**
+
+| Section | What is in it |
+|---|---|
+| Part 1 — six steps | Chunk listings, per-chunk summaries, embedding dimensions, coherence scores, full sorted cosine results |
+| Part 2 — real `.docx` | Document profile, spaCy vs regex cases, five-method comparison, retrieval scores for three queries, map-reduce document summary |
+| Test suite | 23 tests, passing |
+| Two failures and their fixes | A merge prompt that silently dropped four of five points, and the batching that prevents it at 33 chunks |
+
+Raw terminal logs, unedited: [`docs/output.txt`](docs/output.txt) (Part 1) and
+[`docs/output_document.txt`](docs/output_document.txt) (Part 2).
