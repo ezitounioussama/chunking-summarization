@@ -1,0 +1,219 @@
+
+==============================================================================
+SETUP
+==============================================================================
+  LLM model       : llama3.2:3b
+  Embedding model : nomic-embed-text
+  Source text     : 278 characters
+
+  Artificial intelligence is profoundly transforming modern businesses. It makes it possible to automate repetitive tasks, analyze customer behavior, and predict market trends. However, its integration raises ethical concerns regarding privacy, transparency, and human employment.
+
+==============================================================================
+STEP 1 — FIXED-SIZE CHUNKING (50 characters)
+==============================================================================
+
+Generated chunks: 6
+------------------------------------------------------------------------------
+  [1] (50 chars) 'Artificial intelligence is profoundly transforming'
+  [2] (50 chars) ' modern businesses. It makes it possible to automa'
+  [3] (50 chars) 'te repetitive tasks, analyze customer behavior, an'
+  [4] (50 chars) 'd predict market trends. However, its integration '
+  [5] (50 chars) 'raises ethical concerns regarding privacy, transpa'
+  [6] (28 chars) 'rency, and human employment.'
+
+  Note the damage: cuts land mid-word ('automa|te', 'an|d',
+  'transpa|rency'), so some chunks carry a broken idea.
+
+Summary of each chunk
+------------------------------------------------------------------------------
+  [1] Artificial intelligence is profoundly transforming
+  [2] It makes it possible to automate.
+  [3] Analyze customer behavior.
+  [4] It predicts market trends.
+  [5] Raises ethical concerns regarding privacy.
+  [6] Human employment is affected by rency.
+
+Combined final summary
+------------------------------------------------------------------------------
+  Artificial intelligence is profoundly transforming various aspects of life, enabling automation, analysis of customer behavior, prediction of market trends, and raising ethical concerns about privacy, while also affecting human employment.
+
+==============================================================================
+STEP 2 — SEMANTIC CHUNKING
+==============================================================================
+
+Generated chunks: 3
+------------------------------------------------------------------------------
+  [1] ( 69 chars) Artificial intelligence is profoundly transforming modern businesses.
+  [2] (104 chars) It makes it possible to automate repetitive tasks, analyze customer behavior, and predict market trends.
+  [3] (103 chars) However, its integration raises ethical concerns regarding privacy, transparency, and human employment.
+
+  Each chunk is one complete sentence, so each carries one whole idea:
+  what AI does, what it enables, what it costs.
+
+Summary of each chunk
+------------------------------------------------------------------------------
+  [1] Artificial intelligence is changing businesses.
+  [2] It enables automation and analysis of various business processes.
+  [3] Integration raises ethical concerns.
+
+Combined final summary
+------------------------------------------------------------------------------
+  Artificial intelligence is changing businesses by enabling automation and analysis of various business processes, while also raising ethical concerns due to integration.
+
+==============================================================================
+STEP 3 — HIERARCHICAL / RECURSIVE CHUNKING
+==============================================================================
+
+Hierarchical structure
+------------------------------------------------------------------------------
+  DOCUMENT
+  └── PARAGRAPH 1 (278 chars)
+      ├── chunk 1.1 ( 69) Artificial intelligence is profoundly transforming modern businesses.
+      ├── chunk 1.2 ( 76) It makes it possible to automate repetitive tasks, analyze customer behavior
+      ├── chunk 1.3 ( 26) and predict market trends.
+      ├── chunk 1.4 ( 80) However, its integration raises ethical concerns regarding privacy, transparency
+      └── chunk 1.5 ( 21) and human employment.
+
+Level 1 — summary of each small chunk
+------------------------------------------------------------------------------
+  [1] Artificial intelligence is profoundly transforming modern businesses.
+  [2] It automates repetitive tasks and analyzes customer behavior.
+  [3] Predict market trends.
+  [4] Its integration raises ethical concerns regarding privacy and transparency.
+  [5] Human employment is included.
+
+Level 2 — summary of each paragraph, from its sub-chunks
+------------------------------------------------------------------------------
+  Paragraph 1: Artificial intelligence is profoundly transforming modern businesses, automating repetitive tasks and analyzing customer behavior, while also predicting market trends, and its integration raises ethical concerns regarding privacy and transparency, and human employment is included.
+
+Level 3 — final global summary
+------------------------------------------------------------------------------
+  Artificial intelligence is transforming modern businesses by automating repetitive tasks and analyzing customer behavior, while also predicting market trends, and its integration raises concerns about privacy and transparency, as well as its impact on human employment.
+
+==============================================================================
+STEP 4 — DOCUMENT EMBEDDINGS
+==============================================================================
+
+Embedding dimensions
+------------------------------------------------------------------------------
+  fixed-size     6 chunks, vector dimension 768
+  semantic       3 chunks, vector dimension 768
+  hierarchical   5 chunks, vector dimension 768
+
+Stored structure (one record per chunk)
+------------------------------------------------------------------------------
+  Each record is a dict:
+    id        : 1
+    text      : Artificial intelligence is profoundly transforming modern bu...
+    chars     : 69
+    embedding : [-0.02727, 0.08234, ...]  (768 floats)
+
+Comparing the three strategies
+------------------------------------------------------------------------------
+  strategy        chunks   dim  avg chars   min   max
+  fixed-size           6   768       46.3    28    50
+  semantic             3   768       92.0    69   104
+  hierarchical         5   768       54.4    21    80
+
+  Every strategy produces vectors of the same dimension — that is set by
+  the embedding model, not by how the text was split. What changes is how
+  many vectors there are and how much meaning each one carries.
+
+Internal coherence (mean pairwise similarity between a strategy's own chunks)
+------------------------------------------------------------------------------
+  fixed-size     0.4306   (15 pairs)
+  semantic       0.4943   (3 pairs)
+  hierarchical   0.4513   (10 pairs)
+
+==============================================================================
+STEP 5 — QUERY EMBEDDING
+==============================================================================
+
+  Query: 'What are the ethical concerns related to artificial intelligence?'
+
+Dimension check
+------------------------------------------------------------------------------
+  Query embedding dimension    : 768
+  fixed-size     document dimension: 768  -> MATCH
+  semantic       document dimension: 768  -> MATCH
+  hierarchical   document dimension: 768  -> MATCH
+
+  The dimensions must match or the dot product is undefined — which is why
+  the query and the documents have to go through the same embedding model.
+
+==============================================================================
+STEP 6 — COSINE SIMILARITY SEARCH
+==============================================================================
+
+Strategy: fixed-size
+------------------------------------------------------------------------------
+  All chunks, sorted by similarity (descending):
+    1. 0.6966  'raises ethical concerns regarding privacy, transpa' <-- TOP
+    2. 0.6530  'Artificial intelligence is profoundly transforming' <-- TOP
+    3. 0.4207  'rency, and human employment.' <-- TOP
+    4. 0.4196  ' modern businesses. It makes it possible to automa'
+    5. 0.3574  'te repetitive tasks, analyze customer behavior, an'
+    6. 0.3265  'd predict market trends. However, its integration '
+
+  TOP-3 for fixed-size:
+    1) score 0.6966
+       raises ethical concerns regarding privacy, transpa
+    2) score 0.6530
+       Artificial intelligence is profoundly transforming
+    3) score 0.4207
+       rency, and human employment.
+
+Strategy: semantic
+------------------------------------------------------------------------------
+  All chunks, sorted by similarity (descending):
+    1. 0.7052  'However, its integration raises ethical concerns regarding ...' <-- TOP
+    2. 0.6495  'Artificial intelligence is profoundly transforming modern b...' <-- TOP
+    3. 0.4358  'It makes it possible to automate repetitive tasks, analyze ...' <-- TOP
+
+  TOP-3 for semantic:
+    1) score 0.7052
+       However, its integration raises ethical concerns regarding privacy, transparency, and human employment.
+    2) score 0.6495
+       Artificial intelligence is profoundly transforming modern businesses.
+    3) score 0.4358
+       It makes it possible to automate repetitive tasks, analyze customer behavior, and predict market trends.
+
+Strategy: hierarchical
+------------------------------------------------------------------------------
+  All chunks, sorted by similarity (descending):
+    1. 0.6979  'However, its integration raises ethical concerns regarding ...' <-- TOP
+    2. 0.6495  'Artificial intelligence is profoundly transforming modern b...' <-- TOP
+    3. 0.4605  'and human employment.' <-- TOP
+    4. 0.4445  'It makes it possible to automate repetitive tasks, analyze ...'
+    5. 0.3394  'and predict market trends.'
+
+  TOP-3 for hierarchical:
+    1) score 0.6979
+       However, its integration raises ethical concerns regarding privacy, transparency
+    2) score 0.6495
+       Artificial intelligence is profoundly transforming modern businesses.
+    3) score 0.4605
+       and human employment.
+
+What the search results show
+------------------------------------------------------------------------------
+  The query asks about ETHICAL CONCERNS. The right answer is the third
+  sentence — privacy, transparency, employment. Compare how well each
+  strategy surfaces it as the single top hit.
+
+==============================================================================
+THE THREE FINAL SUMMARIES, SIDE BY SIDE
+==============================================================================
+
+  Fixed-size:
+    Artificial intelligence is profoundly transforming various aspects of life, enabling automation, analysis of customer behavior, prediction of market trends, and raising ethical concerns about privacy, while also affecting human employment.
+
+  Semantic:
+    Artificial intelligence is changing businesses by enabling automation and analysis of various business processes, while also raising ethical concerns due to integration.
+
+  Hierarchical:
+    Artificial intelligence is transforming modern businesses by automating repetitive tasks and analyzing customer behavior, while also predicting market trends, and its integration raises concerns about privacy and transparency, as well as its impact on human employment.
+
+==============================================================================
+Done.
+==============================================================================
