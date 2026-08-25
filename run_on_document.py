@@ -9,6 +9,36 @@ Defaults to the NLP course document. Everything runs locally on Ollama.
 import sys
 import time
 
+# Preflight: this script needs spaCy and scikit-learn, which live in the project
+# virtual environment. Running it with the system python gives a bare
+# ModuleNotFoundError, so the check below turns that into instructions.
+_MISSING = []
+for _module, _package in (("spacy", "spacy"), ("sklearn", "scikit-learn"), ("numpy", "numpy")):
+    try:
+        __import__(_module)
+    except ImportError:
+        _MISSING.append(_package)
+
+if _MISSING:
+    print("Error: missing packages: " + ", ".join(_MISSING))
+    print()
+    print("These live in the project virtual environment, not in system Python.")
+    print("Run the script through the venv instead:")
+    print()
+    print("    .venv/bin/python run_on_document.py")
+    print()
+    print("Or activate it first:")
+    print()
+    print("    source .venv/bin/activate")
+    print("    python run_on_document.py")
+    print()
+    print("No venv yet? Create one (note: Arch has no standalone 'pip' — use python -m pip):")
+    print()
+    print("    python3 -m venv .venv")
+    print("    .venv/bin/python -m pip install spacy scikit-learn numpy")
+    print("    .venv/bin/python -m spacy download en_core_web_sm")
+    sys.exit(1)
+
 from chunkers import (
     fixed_size,
     recursive,

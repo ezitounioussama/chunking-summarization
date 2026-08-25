@@ -223,13 +223,40 @@ Target document: `nlp_chunking_vectorization_EN.docx` — the NLP course notes, 
 | `run_on_document.py` | Full pipeline on a real document |
 | `docs/output_document.txt` | Raw terminal log of the Part 2 run (187 lines) — summarised in [`RESULTS.md`](RESULTS.md) |
 
-```bash
-pip install spacy scikit-learn numpy
-python -m spacy download en_core_web_sm
+### Setup for Part 2
 
-python run_on_document.py                      # defaults to the course doc
-python run_on_document.py path/to/other.docx   # any .docx
+Part 1 needs nothing installed — it is standard library only, so `python3 run_exercise.py` just
+works. Part 2 needs spaCy and scikit-learn, which go in a virtual environment:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install spacy scikit-learn numpy
+.venv/bin/python -m spacy download en_core_web_sm
 ```
+
+Then run it **through the venv**, not with the system python:
+
+```bash
+.venv/bin/python run_on_document.py                      # defaults to the course doc
+.venv/bin/python run_on_document.py path/to/other.docx   # any .docx
+```
+
+Or activate the venv once and drop the prefix:
+
+```bash
+source .venv/bin/activate      # Windows: .venv\Scripts\activate
+python run_on_document.py
+```
+
+Two notes for Arch Linux:
+
+- There is no standalone `pip` command. Use `python3 -m pip`, and inside a venv
+  `.venv/bin/python -m pip`.
+- Installing into system Python is blocked (`externally-managed-environment`) and would be the
+  wrong move anyway — the venv keeps this project's packages out of the system.
+
+`run_on_document.py` checks for the three packages before it does anything and prints these
+commands if they are missing, rather than failing with a bare `ModuleNotFoundError`.
 
 ## Is spaCy better than the regex? Yes, measurably
 
