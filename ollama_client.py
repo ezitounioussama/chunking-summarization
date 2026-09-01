@@ -3,7 +3,7 @@
 Everything runs on this machine: no API key, no network calls to a provider.
 Ollama listens on http://localhost:11434 and exposes two endpoints we need:
 
-    POST /api/generate   text generation      (llama3.2:3b)
+    POST /api/generate   text generation      (qwen3:8b)
     POST /api/embed      embedding vectors    (nomic-embed-text)
 
 Only the standard library is used for the requests, so the exercise needs no
@@ -16,7 +16,7 @@ import urllib.request
 
 BASE_URL = "http://127.0.0.1:11434"
 
-LLM_MODEL = "llama3.2:3b"
+LLM_MODEL = "qwen3:8b"
 EMBED_MODEL = "nomic-embed-text"
 
 # Low temperature: summarising is not a creative task, and the same chunk should
@@ -86,6 +86,9 @@ def summarise(text: str, instruction: str, max_tokens: int = 120,
         "/api/generate",
         {
             "model": LLM_MODEL,
+            # qwen3 reasons by default and then returns an EMPTY "response",
+            # with the chain of thought in a separate field. Off.
+            "think": False,
             "prompt": prompt,
             "stream": False,
             "options": {"temperature": TEMPERATURE, "num_predict": max_tokens},

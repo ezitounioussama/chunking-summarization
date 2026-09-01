@@ -7,7 +7,7 @@ hand-written or estimated.
 
 | | |
 |---|---|
-| LLM | `llama3.2:3b` (via local Ollama, `ollama serve`) |
+| LLM | `qwen3:8b` (via local Ollama, thinking disabled) |
 | Embeddings | `nomic-embed-text`, 768 dimensions |
 | Sentence splitter | spaCy 3.8.16 with `en_core_web_sm` 3.8.0 |
 | Clustering | scikit-learn 1.9.0 (`KMeans`) |
@@ -64,20 +64,39 @@ Summary of each chunk:
   [6] Human employment is affected by rency.
 ```
 
-Chunk 2 lost its object — it was in chunk 3. Chunk 6 is worse: the model treated the fragment
-`rency` as a real word and produced *"Human employment is affected by rency."* That is the
-fixed-size failure mode in one line — a broken chunk produces a confidently wrong summary.
+Per-chunk summaries on `qwen3:8b`:
+
+```
+  [1] Artificial intelligence is profoundly transforming.
+  [2] It makes it possible to automa
+  [3] The text mentions repetitive tasks and analyzing customer behavior.
+  [4] The text mentions predicting market trends but is cut mid-sentence.
+  [5] Raises ethical concerns regarding privacy and transparency.
+  [6] The text mentions rency and human employment.
+```
+
+Chunk 2 lost its object — it was in chunk 3 — and chunk 2's "summary" is just the truncated
+fragment, because there is nothing there to summarise.
+
+**This is where the model change shows.** On `llama3.2:3b`, chunk 6 produced *"Human employment is
+affected by rency."* — it treated the fragment `rency` as a real word and stated a confident
+falsehood. `qwen3:8b` says *"The text mentions rency and human employment"* and, on chunk 4, *"is
+cut mid-sentence"*: it reports the damage instead of writing over it. A stronger summariser
+degrades more gracefully on bad chunks; it does not repair them.
 
 Combined final summary:
 
 ```
-Artificial intelligence is profoundly transforming various aspects of life, enabling automation,
-analysis of customer behavior, prediction of market trends, and raising ethical concerns about
-privacy, while also affecting human employment.
+Artificial intelligence is profoundly transforming by automating repetitive tasks, analyzing
+customer behavior, and predicting market trends, while raising ethical concerns regarding privacy,
+transparency, and its impact on human employment.
 ```
 
-Recovers most of the meaning, but drifted to "various aspects of life" instead of *businesses*, and
-lost *transparency*.
+Complete this time — all three ideas, *transparency* included. On `llama3.2:3b` the same six
+chunks gave *"transforming various aspects of life"* (drifted off *businesses*) and dropped
+*transparency* altogether. So a strong enough model can reassemble what fixed-size chunking broke
+**for summarisation**. Retrieval is a different story — see Step 6, where the chunk you get back
+still ends `transpa`.
 
 ## Step 2 — Semantic chunking (sentence level)
 
@@ -93,16 +112,18 @@ One idea per chunk: what AI does, what it enables, what it costs.
 Summaries, then the combination:
 
 ```
-  [1] Artificial intelligence is changing businesses.
-  [2] It enables automation and analysis of various business processes.
-  [3] Integration raises ethical concerns.
+  [1] Artificial intelligence is transforming modern businesses.
+  [2] It allows automating tasks, analyzing behavior, and predicting trends.
+  [3] Its integration raises ethical concerns about privacy, transparency, and human employment.
 
-Final: Artificial intelligence is changing businesses by enabling automation and analysis of
-various business processes, while also raising ethical concerns due to integration.
+Final: Artificial intelligence is transforming modern businesses by automating tasks, analyzing
+behavior, and predicting trends, while its integration raises ethical concerns regarding privacy,
+transparency, and human employment.
 ```
 
-Cleanest, but the most compressed — the specific concerns (privacy, transparency, employment)
-disappeared into "ethical concerns".
+Complete and accurate. On `llama3.2:3b` this came out as *"...raising ethical concerns due to
+integration"* — the specific concerns (privacy, transparency, employment) compressed away. Whole
+sentences in, whole ideas out; the summariser then decides how much of them survives.
 
 ## Step 3 — Hierarchical / recursive chunking
 
@@ -121,23 +142,29 @@ Three summary levels:
 ```
 Level 1 — per small chunk
   [1] Artificial intelligence is profoundly transforming modern businesses.
-  [2] It automates repetitive tasks and analyzes customer behavior.
-  [3] Predict market trends.
-  [4] Its integration raises ethical concerns regarding privacy and transparency.
-  [5] Human employment is included.
+  [2] It makes it possible to automate repetitive tasks and analyze customer behavior.
+  [3] The text mentions predicting market trends.
+  [4] The integration raises ethical concerns regarding privacy and transparency.
+  [5] The text mentions human employment.
 
 Level 2 — paragraph, from its sub-chunks
-  Artificial intelligence is profoundly transforming modern businesses, automating repetitive
-  tasks and analyzing customer behavior, while also predicting market trends, and its integration
-  raises ethical concerns regarding privacy and transparency, and human employment is included.
+  Artificial intelligence is profoundly transforming modern businesses by automating repetitive
+  tasks, analyzing customer behavior, and predicting market trends. Its integration raises
+  ethical concerns regarding privacy, transparency and human employment.
 
 Level 3 — final global summary
-  Artificial intelligence is transforming modern businesses by automating repetitive tasks and
-  analyzing customer behavior, while also predicting market trends, and its integration raises
-  concerns about privacy and transparency, as well as its impact on human employment.
+  Artificial intelligence is transforming modern businesses through automation, customer behavior
+  analysis, and market trend prediction, while raising ethical concerns about privacy,
+  transparency, and its impact on human employment.
 ```
 
-Most complete of the three: keeps all three ideas *and* names the specific concerns.
+Complete: all three ideas, and the specific concerns named. Note levels 1 and 5 — the model writes
+*"The text mentions..."* for the two clause-fragments rather than dressing them up as sentences,
+which is the same graceful-degradation behaviour as in Step 1.
+
+With `qwen3:8b` all three strategies now produce a complete final summary, where on `llama3.2:3b`
+only hierarchical did. The ranking collapsed because the summariser got better, not because the
+chunking did — and Step 6 shows the part that no summariser can fix.
 
 ## Step 4 — Document embeddings
 
@@ -166,9 +193,9 @@ Comparison:
 Internal coherence (mean pairwise cosine between a strategy's own chunks):
 
 ```
-  fixed-size     0.4306   (15 pairs)
-  semantic       0.4943   (3 pairs)
-  hierarchical   0.4513   (10 pairs)
+  fixed-size     0.4297   (15 pairs)
+  semantic       0.4942   (3 pairs)
+  hierarchical   0.4506   (10 pairs)
 ```
 
 Semantic chunks are most related to each other; fixed-size least — consistent with fragments cut
@@ -191,7 +218,7 @@ All chunks scored and sorted, per strategy:
 
 ```
 fixed-size
-  1. 0.6966  'raises ethical concerns regarding privacy, transpa'   <-- TOP
+  1. 0.6953  'raises ethical concerns regarding privacy, transpa'   <-- TOP
   2. 0.6530  'Artificial intelligence is profoundly transforming'   <-- TOP
   3. 0.4207  'rency, and human employment.'                         <-- TOP
   4. 0.4196  ' modern businesses. It makes it possible to automa'
@@ -199,12 +226,12 @@ fixed-size
   6. 0.3265  'd predict market trends. However, its integration '
 
 semantic
-  1. 0.7052  'However, its integration raises ethical concerns regarding privacy, transparency, and human employment.'  <-- TOP
+  1. 0.7059  'However, its integration raises ethical concerns regarding privacy, transparency, and human employment.'  <-- TOP
   2. 0.6495  'Artificial intelligence is profoundly transforming modern businesses.'                                    <-- TOP
   3. 0.4358  'It makes it possible to automate repetitive tasks, analyze customer behavior, and predict market trends.' <-- TOP
 
 hierarchical
-  1. 0.6979  'However, its integration raises ethical concerns regarding privacy, transparency'  <-- TOP
+  1. 0.6984  'However, its integration raises ethical concerns regarding privacy, transparency'  <-- TOP
   2. 0.6495  'Artificial intelligence is profoundly transforming modern businesses.'            <-- TOP
   3. 0.4605  'and human employment.'                                                            <-- TOP
   4. 0.4445  'It makes it possible to automate repetitive tasks, analyze customer behavior...'
@@ -269,7 +296,7 @@ exact; the regex is simply wrong far more often, and increasingly so as abbrevia
   1 fixed-size        41   489.8    106    500      0.00  overlap 60 chars (12%)
   2 sentence          37   475.2    118    600      0.14  engine: spaCy
   3 recursive         33   534.6    153    600      0.00
-  4 semantic           8  2186.0    153   4367      9.04  142 sentences clustered
+  4 semantic           8  2186.0    153   4367      8.08  142 sentences clustered
   5 structure         64   282.8     27    664      0.00  kinds: list, prose
 ```
 
@@ -301,9 +328,9 @@ Top cosine score per strategy. `*` marks the winner.
 
 ```
 query                                                fixed-siz   sentence  recursive   semantic  structure
-Which chunking method should I start with, overlap?     0.7273     0.7179     0.7184     0.6197    0.7683*
-What is an embedding and what does cosine measure?      0.7640     0.7370     0.7782     0.6257    0.8030*
-How do I run a model locally with Ollama?               0.7468     0.7569     0.7714*    0.7447    0.7589
+Which chunking method should I start with, overlap?     0.7258     0.7166     0.7161     0.6200    0.7683*
+What is an embedding and what does cosine measure?      0.7637     0.7378     0.7775     0.6250    0.8026*
+How do I run a model locally with Ollama?               0.7473     0.7569     0.7707*    0.7448    0.7590
 
 wins: recursive 1, structure 2
 ```
@@ -327,12 +354,12 @@ Full top-3 for the recursive strategy on query 2:
 the query's vocabulary, so the chunk matches on both title and body. It costs nothing to compute and
 was the largest single improvement in the comparison.
 
-**2. Semantic (KMeans) came last on every query** — 0.6197, 0.6257, 0.7447. Not a bug: 8 clusters
+**2. Semantic (KMeans) came last on every query** — 0.6200, 0.6250, 0.7448. Not a bug: 8 clusters
 over 17,706 characters gives chunks averaging **2,186 characters** (largest 4,367). Each mixes
 several topics, so its vector is an average and matches no single question sharply. Clustering also
 pulls sentences from across the document, diluting it further. More clusters would help, but that
 converges toward sentence chunking at many times the cost — it was also the only method with a real
-build cost, 9.04 s against ~0.00 s. The most sophisticated method was the worst performer on a short,
+build cost, 8.08 s against ~0.00 s. The most sophisticated method was the worst performer on a short,
 well-structured document.
 
 **3. Fixed-size still returns unusable text.** Its top hit for query 1 begins:
@@ -342,7 +369,7 @@ ed-size chunking  Take a free-form 500-word text (Wikipedia, a news article…).
 function fixed_chunk(tex...
 ```
 
-The chunk starts mid-word (`fix|ed-size`). Score 0.7273, barely below the winner, but that snippet
+The chunk starts mid-word (`fix|ed-size`). Score 0.7258, barely below the winner, but that snippet
 cannot be shown to a user.
 
 ## Document summary — map-reduce over 33 recursive chunks
@@ -351,14 +378,15 @@ cannot be shown to a user.
 
 ```
 Final document summary:
-The course teaches two key NLP techniques, chunking and vectorization, to transform raw text into a
-usable format, focusing on solving problems like dealing with long text and converting text into
-numerical representations. It covers various methods for chunking, including sentence splitting,
-recursive chunking, and semantic chunking, and explains how to generate vectors, store them, and
-perform similarity searches using tools like Ollama and ChromaDB.
+This course covers text chunking methods, vectorization for NLP, and using Ollama to run models
+locally, including tokenization, chunking techniques, embeddings, cosine similarity, and
+implementing a search function for top chunks.
 ```
 
-Accurate, including details that appear only deep in the document (ChromaDB, the pipeline shape).
+Accurate, and it reaches details that appear only deep in the document (cosine similarity, the
+search-function exercise at the very end). Shorter than the `llama3.2:3b` version, which named
+ChromaDB explicitly — a fair trade for a summary that no longer needs checking sentence by
+sentence.
 
 ---
 
@@ -391,7 +419,8 @@ The ethics content had vanished, making the strategy that should perform best lo
 
 Cause was the prompt, not the chunking. `summarise()` appended the rule *"one short sentence"* to
 every call, including merges. Handed five bullet points and told to produce one short sentence,
-`llama3.2:3b` returned the first bullet and dropped the rest.
+`llama3.2:3b` returned the first bullet and dropped the rest. (The merge rule that fixed it is still
+in place on `qwen3:8b`, which is why the summaries below cover every point.)
 
 Fixed by giving merges their own rule — *"cover EVERY point listed below, none omitted, one or two
 sentences"* — behind a `merge=True` flag. The Level 3 summary above is the output after the fix.

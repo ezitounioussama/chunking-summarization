@@ -25,8 +25,8 @@ Part 1 needs nothing installed — it is standard library only, so `python3 run_
 works. Part 2 needs spaCy and scikit-learn, which go in a virtual environment:
 
 ```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install spacy scikit-learn numpy
+uv venv
+uv pip install spacy scikit-learn numpy
 .venv/bin/python -m spacy download en_core_web_sm
 ```
 
@@ -63,8 +63,15 @@ commands if they are missing, rather than failing with a bare `ModuleNotFoundErr
 | Chunk count here | 6 | 3 | 5 |
 | Cost to compute | lowest | low | moderate (recursive) |
 | Retrieved text usable alone | **no** | **yes** | mostly |
-| Summary completeness | drifts, loses detail | concise, loses specifics | most complete |
+| Summary completeness (llama3.2:3b) | drifts, loses detail | concise, loses specifics | most complete |
+| Summary completeness (qwen3:8b) | complete | complete | complete |
 | Good for | uniform-size batching, hard token limits | Q&A and retrieval over prose | long structured documents |
+
+On a stronger summariser the *summary* differences largely vanish — `qwen3:8b` produced a complete
+summary from all three strategies, and even flagged the broken chunks (*"is cut mid-sentence"*)
+instead of inventing meaning for them, where `llama3.2:3b` wrote *"Human employment is affected by
+rency."* What does **not** change is retrieval: the chunk fixed-size hands back still ends
+`transpa`, whatever model reads it afterwards.
 
 Fixed-size is defensible when chunks must be a predictable size — a hard token budget, or a model
 with a small context window — and it is the cheapest to compute. Semantic is the default for

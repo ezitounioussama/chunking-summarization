@@ -10,11 +10,16 @@ boundaries, and run on a real 17,706-character `.docx` instead of a hard-coded s
 The short version of what it found: a good similarity score does not mean a usable chunk.
 Fixed-size chunking scored within 0.01 of the winner and handed back text starting mid-word.
 
-Everything runs locally on Ollama — `llama3.2:3b` for the summaries, `nomic-embed-text` for the
+Re-run on `qwen3:8b` after being built on `llama3.2:3b`, one finding softened and one held. The
+summary differences mostly vanished — the stronger model reassembles what bad chunking broke, and
+says *"is cut mid-sentence"* instead of inventing meaning for a fragment. The retrieval finding did
+not move an inch, because it is mechanical: the top-ranked fixed-size chunk still ends `transpa`.
+
+Everything runs locally on Ollama — `qwen3:8b` for the summaries, `nomic-embed-text` for the
 embeddings — so there is no API key anywhere.
 
 ```bash
-ollama serve && ollama pull llama3.2:3b && ollama pull nomic-embed-text
+ollama serve && ollama pull qwen3:8b && ollama pull nomic-embed-text
 
 python3 run_exercise.py                 # Part 1 — standard library only
 python3 tests.py                        # 23 tests, no Ollama needed
