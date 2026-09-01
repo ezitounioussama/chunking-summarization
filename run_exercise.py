@@ -4,7 +4,7 @@ Text Summarization Using Three Chunking Strategies
 
 Runs all six steps against a local Ollama instance.
 
-    LLM        : llama3.2:3b
+    LLM        : qwen3:8b
     Embeddings : nomic-embed-text
 
 Run:
